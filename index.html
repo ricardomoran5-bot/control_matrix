@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Matriz LED</title>
+    <title>Control Matriz LED BLE</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -37,9 +37,9 @@
 </head>
 <body>
 
-    <h1>Panel Control HUB75</h1>
+    <h1>Panel Control HUB75 (BLE)</h1>
     
-    <button id="btn-conectar" class="btn">🔌 Conectar ESP32</button>
+    <button id="btn-conectar" class="btn">🔌 Conectar ESP32 (BLE)</button>
     <p id="status" class="status">Desconectado</p>
     
     <hr style="width: 80%; border-color: #444; margin: 30px auto;">
@@ -53,8 +53,9 @@
         let dispositivoBluetooth = null;
         let caracteristicaTx = null;
 
-        // UUIDs estándar para emulación de Puerto Serie sobre Bluetooth (SPP)
-        const SerialPortServiceUUID = "00001101-0000-1000-8000-00805f9b34fb";
+        // Mismos UUIDs configurados en el ESP32
+        const BLE_SERVICE_UUID        = "4fafc201-75d5-4747-8f14-456c95158c96";
+        const BLE_CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
         const btnConectar = document.getElementById('btn-conectar');
         const statusTxt = document.getElementById('status');
@@ -62,26 +63,24 @@
 
         btnConectar.addEventListener('click', async () => {
             try {
-                statusTxt.innerText = "Buscando ESP32...";
+                statusTxt.innerText = "Buscando dispositivo BLE...";
                 
-                // Solicitar dispositivo con el servicio SPP
+                // Filtrar por el nombre del dispositivo BLE o por su servicio UUID
                 dispositivoBluetooth = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ESP32_Matrix_Control' }],
-                    optionalServices: [SerialPortServiceUUID]
+                    filters: [{ name: 'ESP32_Matrix_BLE' }],
+                    optionalServices: [BLE_SERVICE_UUID]
                 });
 
-                statusTxt.innerText = "Conectando al servidor GATT...";
+                statusTxt.innerText = "Conectando al servidor GATT de BLE...";
                 const server = await dispositivoBluetooth.gatt.connect();
 
-                statusTxt.innerText = "Obteniendo servicio serie...";
-                const service = await server.getPrimaryService(SerialPortServiceUUID);
+                statusTxt.innerText = "Obteniendo el servicio principal...";
+                const service = await server.getPrimaryService(BLE_SERVICE_UUID);
 
-                statusTxt.innerText = "Obteniendo características...";
-                // En SPP, solemos buscar la primera característica disponible para escribir
-                const characteristics = await service.getCharacteristics();
-                caracteristicaTx = characteristics[0];
+                statusTxt.innerText = "Obteniendo característica de escritura...";
+                caracteristicaTx = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
 
-                statusTxt.innerText = "🟢 ¡Conectado con éxito!";
+                statusTxt.innerText = "🟢 ¡Conectado con éxito por BLE!";
                 btnConectar.style.backgroundColor = "#28a745";
                 btnConectar.innerText = "🔄 Reconectar";
                 
@@ -97,14 +96,14 @@
         async function enviarComando(comando) {
             if (!caracteristicaTx) return;
             try {
-                // Convertir el string en un ArrayBuffer (bytes)
                 const encoder = new TextEncoder();
                 const data = encoder.encode(comando);
-                await caracteristicaTx.writeValue(data);
-                console.log("Comando enviado: " + comando);
+                // Usamos writeValueWithResponse para asegurar la recepción en BLE
+                await caracteristicaTx.writeValueWithResponse(data);
+                console.log("Comando BLE enviado: " + comando);
             } catch (error) {
                 console.error("Error enviando comando: ", error);
-                statusTxt.innerText = "⚠️ Error al enviar comando.";
+                statusTxt.innerText = "⚠️ Error al enviar comando por BLE.";
             }
         }
     </script>
