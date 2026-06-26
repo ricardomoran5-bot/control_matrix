@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Matriz LED BLE</title>
+    <title>LED Técnicos FAPA</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -11,99 +11,163 @@
             background-color: #1e1e24;
             color: white;
             padding: 20px;
+            margin: 0;
         }
-        h1 { margin-bottom: 30px; }
-        .btn {
-            display: block;
-            width: 80%;
-            max-width: 300px;
-            margin: 15px auto;
-            padding: 15px;
+        h1 { 
+            margin-bottom: 30px; 
+            font-size: 2.2rem;
+            color: #f8f9fa;
+        }
+        
+        /* Botón de conexión (Píldora 3D) */
+        #btn-conectar {
+            padding: 15px 30px;
             font-size: 1.2rem;
             font-weight: bold;
+            color: white;
+            background-color: #007bff;
             border: none;
-            border-radius: 8px;
+            border-radius: 30px;
             cursor: pointer;
-            transition: transform 0.1s;
+            box-shadow: 0 8px #0056b3;
+            transition: all 0.1s;
+            margin-bottom: 20px;
         }
-        .btn:active { transform: scale(0.95); }
-        #btn-conectar { background-color: #007bff; color: white; }
-        #btn-go { background-color: #28a745; color: white; }
-        #btn-stop { background-color: #dc3545; color: white; }
-        #btn-slow { background-color: #ffc107; color: black; }
-        #btn-rober { background-color: #ffffff; color: black; }
-        .status { margin-top: 20px; color: #aaa; font-style: italic; }
+        #btn-conectar:active {
+            box-shadow: 0 2px #0056b3;
+            transform: translateY(6px);
+        }
+
+        .status { color: #aaa; font-style: italic; margin-bottom: 30px; }
+
+        /* Contenedor de los botones circulares (AHORA EN COLUMNA 1x4) */
+        .grid-botones {
+            display: flex;
+            flex-direction: column; /* Apila los botones de arriba a abajo */
+            align-items: center;    /* Los centra en la pantalla */
+            gap: 25px;              /* Separación entre botones */
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Diseño de los botones redondos 3D */
+        .btn-modo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            font-size: 1.4rem;
+            font-weight: 900;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.1s;
+            opacity: 0.5; /* Desactivados hasta que conecte */
+        }
+
+        /* El estado "pulsado/activo" */
+        .btn-modo:active, .btn-modo.activo {
+            transform: translateY(8px);
+            opacity: 1 !important;
+        }
+
+        /* Colores y sombras individuales de cada botón */
+        #btn-go { 
+            background-color: #28a745; color: white;
+            box-shadow: 0 10px #1c7430; 
+        }
+        #btn-go:active, #btn-go.activo { box-shadow: 0 2px #1c7430; }
+
+        #btn-stop { 
+            background-color: #dc3545; color: white;
+            box-shadow: 0 10px #a71d2a; 
+        }
+        #btn-stop:active, #btn-stop.activo { box-shadow: 0 2px #a71d2a; }
+
+        #btn-slow { 
+            background-color: #ffc107; color: black;
+            box-shadow: 0 10px #ba8b00; 
+        }
+        #btn-slow:active, #btn-slow.activo { box-shadow: 0 2px #ba8b00; }
+
+        #btn-wait { 
+            background-color: #17a2b8; color: white; 
+            box-shadow: 0 10px #117a8b; 
+        }
+        #btn-wait:active, #btn-wait.activo { box-shadow: 0 2px #117a8b; }
+
     </style>
 </head>
 <body>
 
-    <h1>Panel Control HUB75 (BLE)</h1>
+    <h1>LED Técnicos FAPA</h1>
     
-    <button id="btn-conectar" class="btn">🔌 Conectar ESP32 (BLE)</button>
+    <button id="btn-conectar">🔌 Conectar Panel</button>
     <p id="status" class="status">Desconectado</p>
     
-    <hr style="width: 80%; border-color: #444; margin: 30px auto;">
+    <hr style="width: 80%; border-color: #444; margin: 20px auto 40px auto;">
 
-    <button id="btn-go" class="btn" onclick="enviarComando('1')" disabled>1 - GO</button>
-    <button id="btn-stop" class="btn" onclick="enviarComando('2')" disabled>2 - STOP</button>
-    <button id="btn-slow" class="btn" onclick="enviarComando('3')" disabled>3 - SLOW</button>
-    <button id="btn-rober" class="btn" onclick="enviarComando('4')" disabled>4 - ROBER CABAL</button>
+    <div class="grid-botones">
+        <button id="btn-go" class="btn-modo" onclick="enviarComando('1', this)" disabled>GO</button>
+        <button id="btn-stop" class="btn-modo" onclick="enviarComando('2', this)" disabled>STOP</button>
+        <button id="btn-slow" class="btn-modo" onclick="enviarComando('3', this)" disabled>SLOW</button>
+        <button id="btn-wait" class="btn-modo" onclick="enviarComando('4', this)" disabled>WAIT</button>
+    </div>
 
     <script>
         let dispositivoBluetooth = null;
         let caracteristicaTx = null;
 
-        // Mismos UUIDs configurados en el ESP32
         const BLE_SERVICE_UUID        = "4fafc201-75d5-4747-8f14-456c95158c96";
         const BLE_CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
         const btnConectar = document.getElementById('btn-conectar');
         const statusTxt = document.getElementById('status');
-        const botonesModo = document.querySelectorAll('button:not(#btn-conectar)');
+        const botonesModo = document.querySelectorAll('.btn-modo');
 
         btnConectar.addEventListener('click', async () => {
             try {
-                statusTxt.innerText = "Buscando dispositivo BLE...";
+                statusTxt.innerText = "Buscando dispositivo...";
                 
-                // Filtrar por el nombre del dispositivo BLE o por su servicio UUID
                 dispositivoBluetooth = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ESP32_Matrix_BLE' }],
+                    filters: [{ name: 'LED_Tecnicos_FAPA' }],
                     optionalServices: [BLE_SERVICE_UUID]
                 });
 
-                statusTxt.innerText = "Conectando al servidor GATT de BLE...";
+                statusTxt.innerText = "Conectando al Bluetooth...";
                 const server = await dispositivoBluetooth.gatt.connect();
 
-                statusTxt.innerText = "Obteniendo el servicio principal...";
                 const service = await server.getPrimaryService(BLE_SERVICE_UUID);
-
-                statusTxt.innerText = "Obteniendo característica de escritura...";
                 caracteristicaTx = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
 
-                statusTxt.innerText = "🟢 ¡Conectado con éxito por BLE!";
+                statusTxt.innerText = "🟢 ¡Conectado y listo!";
                 btnConectar.style.backgroundColor = "#28a745";
+                btnConectar.style.boxShadow = "0 8px #1c7430";
                 btnConectar.innerText = "🔄 Reconectar";
                 
-                // Activar los botones de control
-                botonesModo.forEach(btn => btn.disabled = false);
+                botonesModo.forEach(btn => {
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                });
 
             } catch (error) {
                 console.error(error);
-                statusTxt.innerText = "❌ Error de conexión: " + error.message;
+                statusTxt.innerText = "❌ Error: " + error.message;
             }
         });
 
-        async function enviarComando(comando) {
+        async function enviarComando(comando, botonPresionado) {
             if (!caracteristicaTx) return;
             try {
                 const encoder = new TextEncoder();
                 const data = encoder.encode(comando);
-                // Usamos writeValueWithResponse para asegurar la recepción en BLE
                 await caracteristicaTx.writeValueWithResponse(data);
-                console.log("Comando BLE enviado: " + comando);
+                
+                botonesModo.forEach(btn => btn.classList.remove('activo'));
+                botonPresionado.classList.add('activo');
+
             } catch (error) {
                 console.error("Error enviando comando: ", error);
-                statusTxt.innerText = "⚠️ Error al enviar comando por BLE.";
+                statusTxt.innerText = "⚠️ Error al enviar comando.";
             }
         }
     </script>
