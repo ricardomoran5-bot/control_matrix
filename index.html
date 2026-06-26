@@ -19,33 +19,47 @@
             color: #f8f9fa;
         }
         
-        /* Botón de conexión (Píldora 3D) */
-        #btn-conectar {
+        /* Contenedor para alinear los botones de conexión */
+        .cont-conexion {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        /* Botones de sistema (Píldoras 3D) */
+        .btn-sys {
             padding: 15px 30px;
             font-size: 1.2rem;
             font-weight: bold;
             color: white;
-            background-color: #007bff;
             border: none;
             border-radius: 30px;
             cursor: pointer;
-            box-shadow: 0 8px #0056b3;
             transition: all 0.1s;
-            margin-bottom: 20px;
         }
-        #btn-conectar:active {
-            box-shadow: 0 2px #0056b3;
-            transform: translateY(6px);
+        
+        #btn-conectar {
+            background-color: #007bff;
+            box-shadow: 0 8px #0056b3;
         }
+        #btn-conectar:active { box-shadow: 0 2px #0056b3; transform: translateY(6px); }
+
+        #btn-desconectar {
+            background-color: #dc3545;
+            box-shadow: 0 8px #a71d2a;
+            display: none; /* Oculto por defecto */
+        }
+        #btn-desconectar:active { box-shadow: 0 2px #a71d2a; transform: translateY(6px); }
 
         .status { color: #aaa; font-style: italic; margin-bottom: 30px; }
 
-        /* Contenedor de los botones circulares (AHORA EN COLUMNA 1x4) */
+        /* Contenedor de los botones circulares (COLUMNA 1x4) */
         .grid-botones {
             display: flex;
-            flex-direction: column; /* Apila los botones de arriba a abajo */
-            align-items: center;    /* Los centra en la pantalla */
-            gap: 25px;              /* Separación entre botones */
+            flex-direction: column; 
+            align-items: center;    
+            gap: 25px;              
             max-width: 400px;
             margin: 0 auto;
         }
@@ -61,38 +75,24 @@
             cursor: pointer;
             outline: none;
             transition: all 0.1s;
-            opacity: 0.5; /* Desactivados hasta que conecte */
+            opacity: 0.5; 
         }
 
-        /* El estado "pulsado/activo" */
         .btn-modo:active, .btn-modo.activo {
             transform: translateY(8px);
             opacity: 1 !important;
         }
 
-        /* Colores y sombras individuales de cada botón */
-        #btn-go { 
-            background-color: #28a745; color: white;
-            box-shadow: 0 10px #1c7430; 
-        }
+        #btn-go { background-color: #28a745; color: white; box-shadow: 0 10px #1c7430; }
         #btn-go:active, #btn-go.activo { box-shadow: 0 2px #1c7430; }
 
-        #btn-stop { 
-            background-color: #dc3545; color: white;
-            box-shadow: 0 10px #a71d2a; 
-        }
+        #btn-stop { background-color: #dc3545; color: white; box-shadow: 0 10px #a71d2a; }
         #btn-stop:active, #btn-stop.activo { box-shadow: 0 2px #a71d2a; }
 
-        #btn-slow { 
-            background-color: #ffc107; color: black;
-            box-shadow: 0 10px #ba8b00; 
-        }
+        #btn-slow { background-color: #ffc107; color: black; box-shadow: 0 10px #ba8b00; }
         #btn-slow:active, #btn-slow.activo { box-shadow: 0 2px #ba8b00; }
 
-        #btn-wait { 
-            background-color: #17a2b8; color: white; 
-            box-shadow: 0 10px #117a8b; 
-        }
+        #btn-wait { background-color: #17a2b8; color: white; box-shadow: 0 10px #117a8b; }
         #btn-wait:active, #btn-wait.activo { box-shadow: 0 2px #117a8b; }
 
     </style>
@@ -101,7 +101,11 @@
 
     <h1>LED Técnicos FAPA</h1>
     
-    <button id="btn-conectar">🔌 Conectar Panel</button>
+    <div class="cont-conexion">
+        <button id="btn-conectar" class="btn-sys">🔌 Conectar Panel</button>
+        <button id="btn-desconectar" class="btn-sys">🔴 Desconectar</button>
+    </div>
+    
     <p id="status" class="status">Desconectado</p>
     
     <hr style="width: 80%; border-color: #444; margin: 20px auto 40px auto;">
@@ -121,8 +125,23 @@
         const BLE_CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
         const btnConectar = document.getElementById('btn-conectar');
+        const btnDesconectar = document.getElementById('btn-desconectar');
         const statusTxt = document.getElementById('status');
         const botonesModo = document.querySelectorAll('.btn-modo');
+
+        // Función para resetear la interfaz al desconectar
+        function manejarDesconexion() {
+            statusTxt.innerText = "Desconectado";
+            btnConectar.style.display = "inline-block";
+            btnDesconectar.style.display = "none";
+            
+            botonesModo.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = "0.5";
+                btn.classList.remove('activo');
+            });
+            caracteristicaTx = null;
+        }
 
         btnConectar.addEventListener('click', async () => {
             try {
@@ -133,6 +152,9 @@
                     optionalServices: [BLE_SERVICE_UUID]
                 });
 
+                // Detectar si el dispositivo se desconecta físicamente (ej. pérdida de batería)
+                dispositivoBluetooth.addEventListener('gattserverdisconnected', manejarDesconexion);
+
                 statusTxt.innerText = "Conectando al Bluetooth...";
                 const server = await dispositivoBluetooth.gatt.connect();
 
@@ -140,10 +162,12 @@
                 caracteristicaTx = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
 
                 statusTxt.innerText = "🟢 ¡Conectado y listo!";
-                btnConectar.style.backgroundColor = "#28a745";
-                btnConectar.style.boxShadow = "0 8px #1c7430";
-                btnConectar.innerText = "🔄 Reconectar";
                 
+                // Cambiar botones de sistema
+                btnConectar.style.display = "none";
+                btnDesconectar.style.display = "inline-block";
+                
+                // Activar botonera principal
                 botonesModo.forEach(btn => {
                     btn.disabled = false;
                     btn.style.opacity = "1";
@@ -152,6 +176,14 @@
             } catch (error) {
                 console.error(error);
                 statusTxt.innerText = "❌ Error: " + error.message;
+            }
+        });
+
+        // Evento para el botón de desconectar
+        btnDesconectar.addEventListener('click', () => {
+            if (dispositivoBluetooth && dispositivoBluetooth.gatt.connected) {
+                dispositivoBluetooth.gatt.disconnect();
+                manejarDesconexion();
             }
         });
 
